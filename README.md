@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Hyper-Realistic Black Hole</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
-        canvas { display: block; }
+        canvas { display: block; width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
@@ -23,8 +24,6 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- THE PHYSICS SHADER ---
-        // This simulates gravitational lensing (bending light) and gas flow.
         const fragmentShader = `
             uniform float u_time;
             uniform vec2 u_res;
@@ -40,10 +39,9 @@
 
             void main() {
                 vec2 uv = (gl_FragCoord.xy - 0.5 * u_res.xy) / min(u_res.y, u_res.x);
-                vec3 ro = vec3(0, 2, -10); // Camera position
-                vec3 rd = normalize(vec3(uv, 2.0)); // Light ray direction
+                vec3 ro = vec3(0, 2, -10); 
+                vec3 rd = normalize(vec3(uv, 2.0));
                 
-                // Tilt camera for the "Interstellar" angle
                 float a = 0.3; 
                 rd.yz *= mat2(cos(a), -sin(a), sin(a), cos(a));
                 ro.yz *= mat2(cos(a), -sin(a), sin(a), cos(a));
@@ -55,15 +53,9 @@
                 for(int i = 0; i < 80; i++) {
                     vec3 p = ro + rd * t;
                     float d = length(p);
-
-                    // GRAVITY BENDING: Pull the light ray toward the singularity
                     vec3 force = -normalize(p) * (0.12 / (d * d + 0.01));
                     rd = normalize(rd + force);
-
-                    // EVENT HORIZON: If we hit the center, it's pure black
                     if(d < 1.1) { col = vec3(0); break; }
-
-                    // ACCRETION DISK: Swirling gas texture using noise
                     float diskThickness = 0.12 + d * 0.03;
                     if(abs(p.y) < diskThickness && d > 1.2 && d < 6.5) {
                         float swirl = noise(p * 1.2 + vec3(u_time * 0.5, 0, 0));
@@ -71,30 +63,20 @@
                     }
                     t += 0.25;
                 }
-                
-                // Color the glow with a hot orange/gold tint
                 col += vec3(1.0, 0.5, 0.1) * glow * 4.0;
                 gl_FragColor = vec4(col, 1.0);
             }
         `;
 
-        // --- THREE.JS SCENE SETUP ---
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // --- POST-PROCESSING (BLOOM EFFECT) ---
         const renderScene = new RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.6, // Bloom Strength (how much it glows)
-            0.4, // Radius
-            0.1  // Threshold
-        );
-
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.6, 0.4, 0.1);
         const composer = new EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
@@ -108,7 +90,6 @@
         });
         scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
 
-        // --- ANIMATION LOOP ---
         function animate(time) {
             material.uniforms.u_time.value = time * 0.001;
             composer.render(); 
@@ -116,7 +97,6 @@
         }
         animate(0);
 
-        // Window resize support
         window.addEventListener('resize', () => {
             const w = window.innerWidth;
             const h = window.innerHeight;
